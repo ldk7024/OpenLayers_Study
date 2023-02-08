@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>TMS Layer for Vworld</title>
+<link rel="shortcut icon" href="#">
+<link rel="stylesheet" type="text/css" href="/ol/ol.css">
+<script src="/js/jquery-3.6.3.min.js"></script>
+<!-- <script src="https://cdn.polyfill.io/v2/polyfill.min.js?features=requestAnimationFrame,Element.prototype.classList,URL"></script> -->
+<script src="/ol/dist/ol.js"></script>
+
+<style type="text/css">
+    html, body, #map { margin: 0; padding: 0; width: 100%; height: 800px; }
+</style>
+<script type="text/javascript">
+
+$(document).ready( () => {
+	
+	const key = "525D1004-435D-33A4-91DB-FC6BF6323A42";
+	const initZoom = 6.5;
+	const minZoom = 6.5;
+	const maxZoom = 19;
+	const projection = ol.proj.get('EPSG:900913'); //EPSG:3857 동일좌표
+	const projectionExtent = projection.getExtent();
+	const size = ol.extent.getWidth(projectionExtent) / 256;
+	const resolutions = new Array(maxZoom);
+	const matrixIds = new Array(maxZoom);
+    for (let z = 0; z < maxZoom; ++z) {
+      // generate resolutions and matrixIds arrays for this TMS
+      resolutions[z] = size / Math.pow(2, z);
+      matrixIds[z] = z;
+    }
+	
+	// 기본지도
+	const vworldBaseLayer = new ol.layer.Tile({
+	    source: new ol.source.XYZ({  
+// 			crossOrigin: 'anonymous', 
+			attributions: 'Tiles © <a href="https://openlayers.org/"' + ' target="_blank">Home</a>',
+			tileUrlFunction: (coordinate) => {
+				if (coordinate == null) { 
+                    return "";
+                }
+
+                let z = coordinate[0];
+                let x = coordinate[1];
+                //7버전에서는 y값이 음수로 결과가 나오기 때문에 값-1을 통하여 양수변환이 필요하다.
+                let y = (1 << z) - coordinate[2] - 1;;
+                
+                //http://openlayers.org/en/v4.6.5/build/ol.js
+                //let y = Math.pow(2, z) + coordinate[2];
+                
+                if (x < 30 || y < 0) { 
+                    return "";
+                }
+                
+                return 'http://api.vworld.kr/req/tms/1.0.0/' + key + '/Base/' + z + '/' + y + '/' + x + '.png';
+		 	},
+		 	projection: projection,
+		 	tileGrid: new ol.tilegrid.TileGrid({
+                origin: ol.extent.getTopLeft(projectionExtent),
+                resolutions: resolutions,
+                matrixIds: matrixIds
+                //extent : [12523442.714243278,3130860.6785608195,15654303.392804097,5635549.221409474]
+            })
+		}),
+	    properties: { name: 'vworld-base' },
+		minZoom: 6,
+ 	    maxZoom: 19,
+	    zIndex: 0,
+	    preload: Infinity
+	});
+	const view = new ol.View({
+// 	    projection: 'EPSG:4326',
+// 	    center: [ 128, 38 ],
+	    projection: 'EPSG:3857',
+		center: ol.proj.transform([ 127, 37.5 ], 'EPSG:4326', 'EPSG:3857'),
+		zoom : initZoom, // 초기화면 zoom level
+		minZoom : minZoom, // 최소 zoom level
+		maxZoom : maxZoom, // 최대 zoom level
+	});
+	const map = new ol.Map({
+	    layers: [ vworldBaseLayer ],
+	    target: 'map',
+	    view: view,
+	    controls: ol.control.defaults.defaults({
+	         	attributionOptions: /** @type {olx.control.AttributionOptions} */ ({
+	            collapsible: false
+	          })
+	        }),
+	});
+	
+});
+
+	
+</script>
+
+</head>
+<body>
+<h2>(주)이쓰리 이대교 주임</h2>
+<div id="map" class="map"></div>
+</body>
+</html>

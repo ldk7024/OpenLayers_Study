@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Tiled WMS</title>
+    <style>
+      .map {
+        width: 100%;
+        height: 400px;
+      }
+    </style>
+    <script type="text/javascript" src="/js/jquery-3.6.3.min.js"></script>
+    <script type="text/javascript" src="/ol/dist/ol.js"></script>
+    <link rel="stylesheet" type="text/css" href="/ol/ol.css">
+    <script type="text/javascript">
+   		$(document).ready(function() {
+   			const layers = [
+   			  new ol.layer.Tile({
+   			    source: new ol.source.OSM(),
+   			  }),
+   			  new ol.layer.Tile({
+   			    extent: [-13884991, 2870341, -7455066, 6338219],
+   			    source: new ol.source.TileWMS({
+   			      url: 'https://ahocevar.com/geoserver/wms',
+   			      params: {'LAYERS': 'topp:states', 'TILED':true},
+   			      serverType: 'geoserver',
+   			      transition: 0,
+   			    }),
+   			  }),
+   			];
+   			const map = new ol.Map({
+   			  layers: layers,
+   			  target: 'map',
+   			  view: new ol.View({
+   			    center: [-10997148, 4569099],
+   			    zoom: 4,
+   			  }),
+   			});
+		});
+    </script>
+  </head>
+  <body>
+  	<h2>WMS - Tiled</h2>
+  	<h5>(주)이쓰리 이대교 주임</h5>
+    <div id="map" class="map"></div>
+  </body>
+</html>
