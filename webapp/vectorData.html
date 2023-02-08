@@ -1,10 +1,331 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>vectorData</title>
+    <meta charset="utf-8">
+    <meta content="IE=edge" http-equiv="X-UA-Compatible">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GeoJson 및 GML 조회</title>
+    <link rel="shortcut icon" href="#">
+    
+    <style type="text/css">
+      html, body, #map { margin: 0; padding: 0; width: 100%; height: 800px; }
+    
+		.map:-webkit-full-screen { 
+			height: 100%; 
+			margin: 0; 
+		}
+		.map:-ms-fullscreen { 
+			height: 100%; 
+		}
+		.map:fullscreen { 
+			height: 100%; 
+		}
+		.map .ol-rotate { 
+			top: 3em;
+		}
+    
+    
+    </style>
+
+   <script src="/js/jquery-3.6.3.min.js"></script>
+    <script src="/ol/dist/ol.js"></script>
+    <link rel="stylesheet" href="/ol/ol.css">
+    <link rel="shortcut icon" href="#">
+
+<script type="text/javascript">
+
+let map;
+
+$(document).ready(function() {
+	initMap();
+	initMapEvent();
+});
+
+function initMap() {
+	map = new ol.Map({
+		target: 'map',
+		view : new ol.View({
+			projection: "EPSG:3857",
+        	center: ol.proj.transform([ 127, 37.5 ], 'EPSG:4326', 'EPSG:3857'),
+	        zoom: 9
+	    })
+	});
+	
+	map.addControl(new ol.control.FullScreen());
+	map.addControl(new ol.control.ScaleLine());
+	
+	const openStreetMapStandard = new ol.layer.Tile({
+        source : new ol.source.OSM(),
+        title : 'OSMStandard'
+	}); 
+	map.addLayer(openStreetMapStandard);
+	
+	
+	const createTextStyle = (feature, resolution) => {
+		return new ol.style.Text({
+		    textAlign: 'center',
+		    textBaseline: 'middle',
+		    font: '12px Arial',
+		    text: feature.get('A2'),
+		    fill: new ol.style.Fill({color: '#aa3300'}),
+		    stroke: new ol.style.Stroke({color: '#ffffff', width: 3}),
+		    offsetX: 0,
+		    offsetY: 0,
+		    placement: 'point',
+		    maxAngle: 0,
+		    overflow: true,
+		    rotation: 0
+		  });
+	};
+	
+	let geoJsonVectorLayer = new ol.layer.Vector({  //백터레이어
+		  	title: 'emd', //base ol.Object
+			source: new ol.source.Vector({
+				format: new ol.format.GeoJSON(),  //형식
+				projection : 'EPSG:3857',
+				url: '/datas/gis/emd.geojson'  //geoJson 파일
+			}),
+			style: (feature, resolution)=>{
+			    let name = feature.values_.A2;
+			    return new ol.style.Style({
+					stroke: new ol.style.Stroke({
+					    color: '#5c68ff',
+					    width: 1
+					}),
+			      	fill: new ol.style.Fill({
+			          	color: 'rgba(0, 0, 255, 0.1)',
+					}),
+					text: createTextStyle(feature, resolution)
+			    })
+			},
+			
+			//Tile에서 적용
+// 		    minResolution: 4, //최소해상도
+// 		    maxResolution: 19 //최대해상도
+			
+			//숫자가 커지면 확대에 가까워진다.
+			minZoom: 12, //on 
+			maxZoom: 16  //off
+	});
+
+	map.addLayer(geoJsonVectorLayer);
+	
+	var xmlHttp = new XMLHttpRequest();
+	xmlHttp.open("POST", "/datas/gis/emd_center.gml", true);
+	xmlHttp.onload = function() {
+		if (xmlHttp.readyState === xmlHttp.DONE) {
+	        if (xmlHttp.status === 200 || xmlHttp.status === 201) {
+	        	let format = new ol.format.GML3({
+	    			srsName: 'EPSG:3857',
+	    			featureType: 'pos',
+	    			featureNS: 'emd_center'
+	    		});
+	    		let xmlDoc = xmlHttp.responseXML;
+// 	    		let features = format.readFeatures(xmlDoc, {
+// 	    			featureProjection: 'EPSG:3857',
+// 	    			dataProjection: 'EPSG:3857'
+// 	    		});
+				
+				//dummy Sample
+				let dummy_feature = new ol.format.GML3({
+				  srsName: 'EPSG:4326',
+				  featureType: 'dummy',
+				  featureNS: 'http://abcdef.xyz/dummy'
+				});
+				let dummy_features = dummy_feature.readFeatures(
+				  '<x:FeatureCollection xmlns:x="http://www.opengis.net/gml" xmlns:y="http://abcdef.xyz/dummy">' + 
+				  '  <x:featureMember>' + 
+				  '    <y:dummy>' + 
+				  '		127 37.5' + 
+				  '    </y:dummy>' + 
+				  '  </x:featureMember>' + 
+				  '</x:FeatureCollection>'
+				);
+	    		
+	    		let featureSource = new ol.source.Vector(format);
+	    		
+	    		var featureList = xmlDoc.getElementsByTagName("ogr:featureMember");
+	    		for(let i=0; i<featureList.length; i++){
+	    			let featureNode = featureList[i];
+	    			let subElement = featureNode.childNodes;
+	    			let xy = featureNode.childNodes[1].childNodes[3].childNodes[0].childNodes[0].textContent.split(" ");
+	    			let pointFeature = new ol.Feature({
+	    				geometry: new ol.geom.Point([xy[0], xy[1]])
+	    			});
+	    			pointFeature.setId(featureNode.childNodes[1].getAttribute("gml:id").slice(11));
+	    			pointFeature.setProperties({
+	    				'A0': featureNode.childNodes[1].childNodes[5].textContent, 
+	    				'A1': featureNode.childNodes[1].childNodes[7].textContent, 
+	    				'A2': featureNode.childNodes[1].childNodes[9].textContent, 
+	    				'A3': featureNode.childNodes[1].childNodes[11].textContent});
+	    			featureSource.addFeature(pointFeature);
+	    		}
+	    		
+	    		let gmlVectorLayer = new ol.layer.Vector({
+	    			title: 'emd_center',
+	    			source: featureSource,
+	    	        style: new ol.style.Style({
+	    	            image: new ol.style.Circle({
+	    	            	radius: 2,
+	    	            	fill: new ol.style.Fill({
+	    	                    color: 'red'
+	    	                }),
+	    	                stroke: new ol.style.Stroke({
+	    	                	color: [255, 0, 0],
+	    	                	width: 2
+	    	                })
+	    	            })
+	    	        }),
+	    	        minZoom: 9 
+	    		});
+	    		
+	    		map.addLayer(gmlVectorLayer);
+	        }
+		}
+	};
+	xmlHttp.send();
+	
+	//구동안됨
+	let gmlHttp = new XMLHttpRequest();
+	gmlHttp.open("POST", "/datas/gis/emd32.gml", true);
+	gmlHttp.onload = function() {
+		let xmlDoc = gmlHttp.responseXML;
+		let gmlVectorLayer = new ol.layer.Vector({
+	        source: new ol.source.Vector({
+	            //ol.format.GML 기본값 3.1.1
+	            format: new ol.format.GML32({
+	                srsName: 'urn:ogc:def:crs:EPSG::3857',
+	                featureType: 'Polygon',
+	                featureNS: "http://ogr.maptools.org/"
+	            }).readFeature(xmlDoc, {
+	    			featureProjection: 'EPSG:3857',
+	    			dataProjection: 'EPSG:3857'
+		    	})
+	        }),
+	        name: 'emd polygon',
+	        style: new ol.style.Style({
+	            image: new ol.style.Circle({
+	            	radius: 10,
+	            	fill: new ol.style.Fill({
+	                    color: 'rgba(0, 0, 255, 0.3)'
+	                }),
+	                stroke: new ol.style.Stroke({
+	                	color: [255, 0, 0],
+	                	width: 2
+	                })
+	            })
+	        })
+	    });
+		console.log(gmlVectorLayer.getSource().getFeatures().length);
+		
+//	 	map.addLayer(gmlVectorLayer);
+	}
+	gmlHttp.send();
+	
+
+}
+
+function initMapEvent() {
+	map.on('moveend', function(e) {
+		$("#txtZoomLevel").val(e.map.getView().getZoom());
+		$("#txtExtend").val(e.map.getView().calculateExtent(e.map.getSize()));
+	});
+	
+	map.on('click', function(e) {
+		var lonlat = e.coordinate;
+		$("#txtXY").val(ol.proj.transform(lonlat, 'EPSG:3857', 'EPSG:4326'));
+		
+		map.forEachFeatureAtPixel(e.pixel, function (feature, layer) {
+	        let values = feature.getProperties()["A2"];
+	        $("#txtIdentity").val(values);
+        },{
+			hitTolerance: 2,
+			layerFilter: function(layer) {
+			    return layer.get("title") === 'emd_center';
+			}
+	      }
+	    );
+	})
+	
+	
+  	map.getLayers().on('propertychange',function(e){
+		console.log("propertychange : ");
+		console.log(e);
+  	});
+	
+	$("#btnGeoJeon").click(function() {
+		let newFeatures = [];
+		let projection = ol.proj.get("EPSG:3857");
+		let vector = map.getLayers().getArray()[2];
+		vector.getSource().forEachFeature(function(feature) {
+			let clone = feature.clone();
+			clone.setId(feature.getId());
+			clone.getGeometry().transform(projection, "EPSG:4326");
+			newFeatures.push(clone);
+		});
+		let exGeoJson = new ol.format.GeoJSON().writeFeatures(newFeatures);
+		console.log(exGeoJson);
+	});
+	
+	$("#btnGML3").click(function() {
+		let newFeatures = [];
+		let projection = ol.proj.get("EPSG:3857");
+		let vector = map.getLayers().getArray()[2];
+		vector.getSource().forEachFeature(function(feature) {
+			let clone = feature.clone();
+			clone.setId(feature.getId());
+			clone.getGeometry().transform(projection, "EPSG:4326");
+			newFeatures.push(clone);
+		});
+		//GML문장 구조로 인한 오류발생 (동일동작: writeFeatures => writeFeaturesNode)
+// 		let exGML = new ol.format.GML3().writeFeaturesNode(vector.getSource().getFeatures());
+		let exGML = new ol.format.GML3().writeFeatures(vector.getSource().getFeatures());
+		console.log(exGML);
+	});
+	
+	$("#btnLayerRemove").click(function() {
+		let vector = map.getLayers().getArray()[2];
+		map.removeLayer(vector);
+	});
+}
+
+function rotation() {
+	map.getView().setRotation(getAngel());
+}
+
+var angleVal = [0, -Math.PI / 2, Math.PI / 1, Math.PI / 2];
+var selAngelVal = 0;
+function getAngel() {
+	if (selAngelVal == 3) {
+		selAngelVal = 0;
+	} else {
+		selAngelVal++;
+	}
+	return angleVal[selAngelVal];
+}
+
+
+</script>    
+    
 </head>
 <body>
-
+    <h2>GeoJson 및 GML 조회</h2>
+  	<h5>(주)이쓰리 이대교 주임</h5>
+<div>
+<label>ZoomLevel</label>
+<input type="text" id="txtZoomLevel" />
+<label>Extend</label>
+<input type="text" id="txtExtend" style="width: 600px;" /><br/>
+<label>XY</label>
+<input type="text" id="txtXY" style="width: 300px;" />
+<label>포인트정보</label>
+<input type="text" id="txtIdentity" style="width: 300px;" />
+<input type="button" id="btnRotation" onclick="javascript:rotation();" value="회전" /><br/>
+<button id="btnGeoJeon">GeoJson Export</button>
+<button id="btnGML3">GML3 Export(log에서 오류확인)</button>
+<button id="btnLayerRemove">Layer Remove</button>
+</div>
+<div id="map" class="map"></div>    
 </body>
 </html>
