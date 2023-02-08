@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Image Load Events</title>
+    <script src="/js/jquery-3.6.3.min.js"></script>
+    <script src="/ol/dist/ol.js"></script>
+    <link rel="stylesheet" href="/ol/ol.css">
+    <link rel="shortcut icon" href="#">
+	<style>
+      .map {
+        width: 100%;
+        height: 400px;
+      }
+      .map {
+        background: #E0ECED;
+      }
+      .wrapper {
+        position: relative;
+      }
+      #progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 2px;
+        background: rgba(0, 60, 136, 0.4);
+        width: 0;
+        transition: width 250ms;
+      }
+    </style>
+    <script>
+    	$(()=>{
+    		/**
+    		 * Renders a progress bar.
+    		 * @param {HTMLElement} el The target element.
+    		 * @class
+    		 */
+    		function Progress(el) {
+    		  this.el = el;
+    		  this.loading = 0;
+    		  this.loaded = 0;
+    		}
+
+    		/**
+    		 * Increment the count of loading tiles.
+    		 */
+    		Progress.prototype.addLoading = function () {
+    		  ++this.loading;
+    		  this.update();
+    		};
+
+    		/**
+    		 * Increment the count of loaded tiles.
+    		 */
+    		Progress.prototype.addLoaded = function () {
+    		  ++this.loaded;
+    		  this.update();
+    		};
+
+    		/**
+    		 * Update the progress bar.
+    		 */
+    		Progress.prototype.update = function () {
+    		  const width = ((this.loaded / this.loading) * 100).toFixed(1) + '%';
+    		  this.el.style.width = width;
+    		};
+
+    		/**
+    		 * Show the progress bar.
+    		 */
+    		Progress.prototype.show = function () {
+    		  this.el.style.visibility = 'visible';
+    		};
+
+    		/**
+    		 * Hide the progress bar.
+    		 */
+    		Progress.prototype.hide = function () {
+    		  const style = this.el.style;
+    		  setTimeout(function () {
+    		    style.visibility = 'hidden';
+    		    style.width = 0;
+    		  }, 250);
+    		};
+
+    		const progress = new Progress(document.getElementById('progress'));
+
+    		const source = new ol.source.ImageWMS({
+    		  url: 'https://ahocevar.com/geoserver/wms',
+    		  params: {'LAYERS': 'topp:states'},
+    		  serverType: 'geoserver',
+    		});
+
+    		source.on('imageloadstart', function () {
+    		  progress.addLoading();
+    		});
+    		source.on(['imageloadend', 'imageloaderror'], function () {
+    		  progress.addLoaded();
+    		});
+
+    		const map = new ol.Map({
+    		  layers: [new ol.layer.Image({source: source})],
+    		  target: 'map',
+    		  view: new ol.View({
+    		    center: [-10997148, 4569099],
+    		    zoom: 4,
+    		  }),
+    		});
+
+    		map.on('loadstart', function () {
+    		  progress.show();
+    		});
+    		map.on('loadend', function () {
+    		  progress.hide();
+    		});
+    	})
+    </script>
+  </head>
+  <body>
+    <h2>Image Load Events</h2>
+  	<h5>(주)이쓰리 이대교 주임</h5>
+    <div class="wrapper">
+      <div id="map" class="map"></div>
+      <div id="progress"></div>
+    </div>
+  </body>
+</html>
